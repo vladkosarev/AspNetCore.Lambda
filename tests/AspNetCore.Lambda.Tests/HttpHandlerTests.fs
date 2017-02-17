@@ -10,7 +10,9 @@ open Microsoft.Extensions.Primitives
 open Microsoft.Extensions.Logging
 open Xunit
 open NSubstitute
+open RazorLight
 open AspNetCore.Lambda.HttpHandlers
+open AspNetCore.Lambda.Tests
 
 // ---------------------------------
 // Helper functions
@@ -696,3 +698,30 @@ let ``GET "/api/foo/bar/yadayada" returns "yadayada"`` () =
     | Some ctx ->
         let body = getBody ctx
         Assert.Equal(expected, body)
+
+[<Fact>]
+let ``GET "/razor" returns rendered html view`` () =
+    let app = 
+        GET >>= choose [ 
+            route "/"      >>= text "Hello World"
+            route "/foo"   >>= text "bar"
+            route "/razor" >>= razorView "Person" { Name = "razor" }
+            setStatusCode 404 >>= text "Not found" ]
+    
+    services.GetService(typeof<IRazorLightEngine>).Returns(EngineFactory.CreateEmbedded(typeof<Person>))
+    ctx.Request.Method.ReturnsForAnyArgs "GET" |> ignore
+    ctx.Request.Path.ReturnsForAnyArgs (PathString("/razor")) |> ignore
+    ctx.Response.Body <- new MemoryStream()
+    let expected = "<html><head><title>Hello, razor</title></head><body><h3>Hello, razor</h3></body></html>"    
+
+    let result = 
+        { HttpContext = ctx; Services = services }
+        |> app
+        |> Async.RunSynchronously
+
+    match result with
+    | None          -> assertFailf "Result was expected to be %s" expected
+    | Some ctx ->
+        let body = getBody ctx
+        Assert.Equal(expected, body)
+        Assert.Equal("text/html", ctx.HttpContext.Response |> getContentType)

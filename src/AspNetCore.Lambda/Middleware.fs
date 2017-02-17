@@ -7,6 +7,7 @@ open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.DependencyInjection
 open AspNetCore.Lambda.HttpHandlers
+open RazorLight
 
 type LambdaMiddleware (next     : RequestDelegate,
                        handler  : HttpHandler,
@@ -64,3 +65,7 @@ type IApplicationBuilder with
     member this.UseLambdaErrorHandler (handler : ErrorHandler) =
         this.UseMiddleware<LambdaErrorHandlerMiddleware>(handler)
         |> ignore
+
+type IServiceCollection with
+    member this.AddRazorEngine (viewsFolderPath : string) =
+        this.AddSingleton<IRazorLightEngine>(EngineFactory.CreatePhysical(viewsFolderPath));

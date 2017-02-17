@@ -11,6 +11,7 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.DependencyInjection
 open AspNetCore.Lambda.HttpHandlers
 open AspNetCore.Lambda.Middleware
+open AspNetCore.Lambda.SampleApp
 
 // Error Handler
 
@@ -20,8 +21,8 @@ let errorHandler (ex : Exception) (ctx : HttpHandlerContext) =
     logger.LogError(EventId(0), ex, "An unhandled exception has occurred while executing the request")
     ctx |> (clearResponse >>= setStatusCode 500 >>= text ex.Message)
 
+// Web application
 
-// Web application    
 let authScheme = "Cookie"
 
 let accessDenied = setStatusCode 401 >>= text "Access Denied"
@@ -71,13 +72,18 @@ let webApp =
                 route  "/logout"     >>= signOff authScheme >>= text "Successfully logged out."
                 route  "/user"       >>= mustBeUser >>= userHandler
                 routef "/user/%i"    showUserHandler
+                route  "/razor"      >>= razorView "Person.cshtml" { Name = "Razor" }
             ]
         setStatusCode 404 >>= text "Not Found" ]
 
 type Startup() =
-    member __.ConfigureServices (services : IServiceCollection) =
+    member __.ConfigureServices (services : IServiceCollection, env : IHostingEnvironment) =        
+        let viewsFolderPath = Path.Combine(env.WebRootPath, "views")
+
         services.AddAuthentication() |> ignore
         services.AddDataProtection() |> ignore
+        services.AddRazorEngine(viewsFolderPath) |> ignore
+
 
     member __.Configure (app : IApplicationBuilder)
                         (env : IHostingEnvironment)

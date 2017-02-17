@@ -10,6 +10,7 @@ open Microsoft.Extensions.DependencyInjection
 open FSharp.Core.Printf
 open Newtonsoft.Json
 open DotLiquid
+open RazorLight
 open AspNetCore.Lambda.Common
 open AspNetCore.Lambda.FormatExpressions
 
@@ -313,7 +314,7 @@ let htmlTemplate (relativeTemplatePath : string) (model : obj) =
             return! dotLiquid "text/html" template model ctx
         }
 
-/// Reads a HTML file from disk and writes its content to the body of the HTTP response
+/// Reads a HTML file from disk and writes its contents to the body of the HTTP response
 /// with a Content-Type of text/html.
 let htmlFile (relativeFilePath : string) =
     fun (ctx : HttpHandlerContext) ->
@@ -326,3 +327,13 @@ let htmlFile (relativeFilePath : string) =
                 |> (setHttpHeader "Content-Type" "text/html"
                 >>= setBodyAsString html)
         }
+
+/// Parses and compiles a Razor view with the associated model and then writes its contents
+/// to the body of the response. It also sets the HTTP header Content-Type to text/html.
+let razorView (viewName : string) (model : obj) =
+    fun (ctx : HttpHandlerContext) ->
+        let engine = ctx.Services.GetService<IRazorLightEngine>()
+        let view = engine.Parse(viewName, model)
+        setHttpHeader "Content-Type" "text/html"
+        >>= setBodyAsString view
+        <| ctx
